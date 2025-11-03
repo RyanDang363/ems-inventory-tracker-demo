@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Activity, User, Lock, AlertCircle } from 'lucide-react';
+import { Activity, User, Lock, AlertCircle, Sparkles } from 'lucide-react';
 
 const Login = ({ onLogin }) => {
   const [username, setUsername] = useState('');
@@ -9,8 +9,7 @@ const Login = ({ onLogin }) => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleLogin = async (user, pass) => {
     setError('');
     setLoading(true);
 
@@ -19,7 +18,7 @@ const Login = ({ onLogin }) => {
       const response = await fetch(`${apiUrl}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify({ username: user, password: pass })
       });
 
       const data = await response.json();
@@ -39,9 +38,28 @@ const Login = ({ onLogin }) => {
     }
   };
 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    await handleLogin(username, password);
+  };
+
+  const handleDemoLogin = () => {
+    setUsername('manager1');
+    setPassword('password123');
+    handleLogin('manager1', 'password123');
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-red-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
+        {/* DEMO MODE Badge */}
+        <div className="mb-4 flex items-center justify-center">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full text-sm font-semibold shadow-lg">
+            <Sparkles className="h-4 w-4" />
+            <span>DEMO MODE</span>
+          </div>
+        </div>
+
         <div className="flex items-center justify-center mb-8">
           <Activity className="h-12 w-12 text-red-600 mr-3" />
           <h1 className="text-3xl font-bold text-gray-800">EMS Tracker</h1>
@@ -96,12 +114,23 @@ const Login = ({ onLogin }) => {
           </button>
         </form>
 
-        <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-          <p className="text-sm text-gray-600 font-medium mb-2">Demo Accounts:</p>
-          <div className="space-y-1 text-sm text-gray-500">
-            <p>Username: <span className="font-mono">manager1</span> | Password: <span className="font-mono">password123</span></p>
-            <p>Username: <span className="font-mono">manager2</span> | Password: <span className="font-mono">password123</span></p>
-          </div>
+        {/* Demo Login Button */}
+        <div className="mt-6">
+          <button
+            onClick={handleDemoLogin}
+            disabled={loading}
+            className="w-full py-3 px-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 transition shadow-lg font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Sparkles className="h-5 w-5" />
+            <span>Try Demo Account</span>
+          </button>
+        </div>
+
+        {/* Demo Credentials Info */}
+        <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+          <p className="text-xs text-gray-500 text-center">
+            Demo credentials: <span className="font-mono font-semibold">manager1</span> / <span className="font-mono font-semibold">password123</span>
+          </p>
         </div>
       </div>
     </div>
