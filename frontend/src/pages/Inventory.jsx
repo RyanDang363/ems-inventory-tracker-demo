@@ -1,23 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Edit2, Trash2, Package } from 'lucide-react';
-import StockBadge from '../components/StockBadge';
-import { apiCall } from '../utils/api';
+import api from '../utils/api';
+import { Search, Plus, Edit2, Trash2, Save, X, Package } from 'lucide-react';
 
 const Inventory = () => {
   const [supplies, setSupplies] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [showModal, setShowModal] = useState(false);
-  const [editingSupply, setEditingSupply] = useState(null);
-  const [formData, setFormData] = useState({
+  const [filterCategory, setFilterCategory] = useState('');
+  const [editingId, setEditingId] = useState(null);
+  const [editData, setEditData] = useState({});
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newSupply, setNewSupply] = useState({
     name: '',
     category_id: '',
     current_quantity: 0,
     min_threshold: 10,
-    unit: 'units',
-    description: ''
+    unit: 'units'
   });
 
   useEffect(() => {
@@ -27,9 +26,8 @@ const Inventory = () => {
 
   const fetchSupplies = async () => {
     try {
-      const response = await apiCall('/api/supplies');
-      const data = await response.json();
-      setSupplies(data);
+      const response = await api.get('/inventory/supplies');
+      setSupplies(response.data);
     } catch (error) {
       console.error('Error fetching supplies:', error);
     } finally {
@@ -39,321 +37,283 @@ const Inventory = () => {
 
   const fetchCategories = async () => {
     try {
-      const response = await apiCall('/api/categories');
-      const data = await response.json();
-      setCategories(data);
+      const response = await api.get('/inventory/categories');
+      setCategories(response.data);
     } catch (error) {
       console.error('Error fetching categories:', error);
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleEdit = (supply) => {
+    setEditingId(supply.id);
+    setEditData({
+      current_quantity: supply.current_quantity,
+      min_threshold: supply.min_threshold
+    });
+  };
+
+  const handleSave = async (id) => {
     try {
-      const url = editingSupply 
-        ? `/api/supplies/${editingSupply.id}`
-        : '/api/supplies';
-      const method = editingSupply ? 'PUT' : 'POST';
-
-      const response = await apiCall(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
-
-      if (response.ok) {
-        fetchSupplies();
-        setShowModal(false);
-        resetForm();
-      }
+      await api.put(`/inventory/supplies/${id}`, editData);
+      await fetchSupplies();
+      setEditingId(null);
+      setEditData({});
     } catch (error) {
-      console.error('Error saving supply:', error);
+      console.error('Error updating supply:', error);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this supply?')) return;
-
-    try {
-      const response = await apiCall(`/api/supplies/${id}`, {
-        method: 'DELETE'
-      });
-
-      if (response.ok) {
-        fetchSupplies();
+    if (window.confirm('Are you sure you want to delete this supply?')) {
+      try {
+        await api.delete(`/inventory/supplies/${id}`);
+        await fetchSupplies();
+      } catch (error) {
+        console.error('Error deleting supply:', error);
       }
-    } catch (error) {
-      console.error('Error deleting supply:', error);
     }
   };
 
-  const handleEdit = (supply) => {
-    setEditingSupply(supply);
-    setFormData({
-      name: supply.name,
-      category_id: supply.category_id,
-      current_quantity: supply.current_quantity,
-      min_threshold: supply.min_threshold,
-      unit: supply.unit,
-      description: supply.description || ''
-    });
-    setShowModal(true);
-  };
-
-  const resetForm = () => {
-    setEditingSupply(null);
-    setFormData({
-      name: '',
-      category_id: '',
-      current_quantity: 0,
-      min_threshold: 10,
-      unit: 'units',
-      description: ''
-    });
+  const handleAddSupply = async () => {
+    try {
+      await api.post('/inventory/supplies', newSupply);
+      await fetchSupplies();
+      setShowAddModal(false);
+      setNewSupply({
+        name: '',
+        category_id: '',
+        current_quantity: 0,
+        min_threshold: 10,
+        unit: 'units'
+      });
+    } catch (error) {
+      console.error('Error adding supply:', error);
+    }
   };
 
   const filteredSupplies = supplies.filter(supply => {
-    const matchesSearch = supply.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          supply.category_name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || supply.category_name === selectedCategory;
+    const matchesSearch = supply.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = !filterCategory || supply.category_id === parseInt(filterCategory);
     return matchesSearch && matchesCategory;
   });
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Inventory Management</h2>
-          <p className="text-gray-600 mt-1">Manage all medical supplies</p>
-        </div>
-        <button
-          onClick={() => {
-            resetForm();
-            setShowModal(true);
-          }}
-          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="h-5 w-5 mr-2" />
-          Add Supply
-        </button>
-      </div>
-
-      {/* Filters */}
-      <div className="bg-white rounded-lg shadow p-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex-1 w-full sm:max-w-md">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
             <input
               type="text"
               placeholder="Search supplies..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
             />
           </div>
+        </div>
+        <div className="flex gap-3">
           <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            value={filterCategory}
+            onChange={(e) => setFilterCategory(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
           >
-            <option value="all">All Categories</option>
+            <option value="">All Categories</option>
             {categories.map(cat => (
-              <option key={cat.id} value={cat.name}>{cat.name}</option>
+              <option key={cat.id} value={cat.id}>{cat.name}</option>
             ))}
           </select>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition"
+          >
+            <Plus className="h-5 w-5" />
+            Add Supply
+          </button>
         </div>
       </div>
 
-      {/* Supplies Table */}
+      {/* Inventory Table */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Supply Name
+                  Item
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Category
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Quantity
+                  Current Stock
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Min Threshold
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredSupplies.length === 0 ? (
-                <tr>
-                  <td colSpan="5" className="px-6 py-12 text-center">
-                    <Package className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                    <p className="text-gray-500">No supplies found</p>
+              {filteredSupplies.map((supply) => (
+                <tr key={supply.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4">
+                    <div className="flex items-center">
+                      <Package className="h-5 w-5 text-gray-400 mr-2" />
+                      <span className="font-medium text-gray-900">{supply.name}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-600">
+                    {supply.category_name}
+                  </td>
+                  <td className="px-6 py-4">
+                    {editingId === supply.id ? (
+                      <input
+                        type="number"
+                        value={editData.current_quantity}
+                        onChange={(e) => setEditData({...editData, current_quantity: parseInt(e.target.value)})}
+                        className="w-20 px-2 py-1 border rounded"
+                      />
+                    ) : (
+                      <span className="text-sm font-medium text-gray-900">
+                        {supply.current_quantity} {supply.unit}
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4">
+                    {editingId === supply.id ? (
+                      <input
+                        type="number"
+                        value={editData.min_threshold}
+                        onChange={(e) => setEditData({...editData, min_threshold: parseInt(e.target.value)})}
+                        className="w-20 px-2 py-1 border rounded"
+                      />
+                    ) : (
+                      <span className="text-sm text-gray-600">
+                        {supply.min_threshold} {supply.unit}
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4">
+                    <StockBadge status={supply.stock_status} percentage={supply.stock_percentage} />
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2">
+                      {editingId === supply.id ? (
+                        <>
+                          <button
+                            onClick={() => handleSave(supply.id)}
+                            className="p-1 text-green-600 hover:bg-green-100 rounded"
+                          >
+                            <Save className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => {setEditingId(null); setEditData({});}}
+                            className="p-1 text-gray-600 hover:bg-gray-100 rounded"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => handleEdit(supply)}
+                            className="p-1 text-blue-600 hover:bg-blue-100 rounded"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(supply.id)}
+                            className="p-1 text-red-600 hover:bg-red-100 rounded"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </td>
                 </tr>
-              ) : (
-                filteredSupplies.map((supply) => (
-                  <tr key={supply.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{supply.name}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-600">{supply.category_name}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {supply.current_quantity} {supply.unit}
-                        <span className="text-gray-500 text-xs ml-1">
-                          (min: {supply.min_threshold})
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <StockBadge status={supply.stock_status} />
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button
-                        onClick={() => handleEdit(supply)}
-                        className="text-blue-600 hover:text-blue-900 mr-3"
-                      >
-                        <Edit2 className="h-4 w-4 inline" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(supply.id)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        <Trash2 className="h-4 w-4 inline" />
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
+              ))}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">
-                {editingSupply ? 'Edit Supply' : 'Add New Supply'}
-              </h3>
-            </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Supply Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Category *
-                  </label>
-                  <select
-                    required
-                    value={formData.category_id}
-                    onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Select Category</option>
-                    {categories.map(cat => (
-                      <option key={cat.id} value={cat.id}>{cat.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Current Quantity *
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    min="0"
-                    value={formData.current_quantity}
-                    onChange={(e) => setFormData({ ...formData, current_quantity: parseInt(e.target.value) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Minimum Threshold *
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    min="0"
-                    value={formData.min_threshold}
-                    onChange={(e) => setFormData({ ...formData, min_threshold: parseInt(e.target.value) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Unit *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.unit}
-                    onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                    placeholder="e.g., units, boxes, vials"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Description
-                </label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  rows="3"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+      {/* Add Supply Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4">Add New Supply</h2>
+            <div className="space-y-4">
+              <input
+                type="text"
+                placeholder="Supply Name"
+                value={newSupply.name}
+                onChange={(e) => setNewSupply({...newSupply, name: e.target.value})}
+                className="w-full px-3 py-2 border rounded-lg"
+              />
+              <select
+                value={newSupply.category_id}
+                onChange={(e) => setNewSupply({...newSupply, category_id: parseInt(e.target.value)})}
+                className="w-full px-3 py-2 border rounded-lg"
+              >
+                <option value="">Select Category</option>
+                {categories.map(cat => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+              </select>
+              <div className="grid grid-cols-2 gap-4">
+                <input
+                  type="number"
+                  placeholder="Current Quantity"
+                  value={newSupply.current_quantity}
+                  onChange={(e) => setNewSupply({...newSupply, current_quantity: parseInt(e.target.value)})}
+                  className="px-3 py-2 border rounded-lg"
+                />
+                <input
+                  type="number"
+                  placeholder="Min Threshold"
+                  value={newSupply.min_threshold}
+                  onChange={(e) => setNewSupply({...newSupply, min_threshold: parseInt(e.target.value)})}
+                  className="px-3 py-2 border rounded-lg"
                 />
               </div>
-              <div className="flex justify-end space-x-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowModal(false);
-                    resetForm();
-                  }}
-                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  {editingSupply ? 'Update' : 'Create'} Supply
-                </button>
-              </div>
-            </form>
+              <input
+                type="text"
+                placeholder="Unit (e.g., units, boxes, vials)"
+                value={newSupply.unit}
+                onChange={(e) => setNewSupply({...newSupply, unit: e.target.value})}
+                className="w-full px-3 py-2 border rounded-lg"
+              />
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddSupply}
+                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+              >
+                Add Supply
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -361,5 +321,35 @@ const Inventory = () => {
   );
 };
 
-export default Inventory;
+const StockBadge = ({ status, percentage }) => {
+  const getStatusColor = () => {
+    switch (status) {
+      case 'out_of_stock': return 'bg-red-100 text-red-800 border-red-200';
+      case 'low': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'medium': return 'bg-orange-100 text-orange-800 border-orange-200';
+      default: return 'bg-green-100 text-green-800 border-green-200';
+    }
+  };
 
+  const getStatusText = () => {
+    switch (status) {
+      case 'out_of_stock': return 'Out of Stock';
+      case 'low': return 'Low Stock';
+      case 'medium': return 'Medium';
+      default: return 'Good';
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getStatusColor()}`}>
+        {getStatusText()}
+      </span>
+      {percentage !== undefined && (
+        <span className="text-xs text-gray-500">{percentage}%</span>
+      )}
+    </div>
+  );
+};
+
+export default Inventory;

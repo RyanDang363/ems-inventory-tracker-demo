@@ -1,14 +1,19 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import authRouter from './routes/auth.js';
-import googleAuthRouter from './routes/googleAuth.js';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+import { connectDB } from './database/db.js'; // Initialize MongoDB connection
+import inventoryRouter from './routes/inventory.js';
 import googleFormsRouter from './routes/googleForms.js';
-import suppliesRouter from './routes/supplies.js';
-import transactionsRouter from './routes/transactions.js';
-import dashboardRouter from './routes/dashboard.js';
-import categoriesRouter from './routes/categories.js';
+import authRouter from './routes/auth.js';
 import { authenticateToken } from './middleware/auth.js';
+
+// Connect to MongoDB
+connectDB();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 dotenv.config();
 
@@ -25,26 +30,41 @@ app.use((req, res, next) => {
   next();
 });
 
-// Public routes (no authentication required)
+// Public routes
 app.use('/api/auth', authRouter);
-app.use('/api/auth', googleAuthRouter); // Google OAuth routes
-app.use('/api/transactions', googleFormsRouter); // Google Forms endpoint - public (must be before protected routes)
+app.use('/api/google-forms', googleFormsRouter); // Keep public for Google Forms
 
 // Protected routes (require authentication)
-app.use('/api/supplies', authenticateToken, suppliesRouter);
-app.use('/api/transactions', authenticateToken, transactionsRouter);
-app.use('/api/dashboard', authenticateToken, dashboardRouter);
-app.use('/api/categories', authenticateToken, categoriesRouter);
+app.use('/api/inventory', authenticateToken, inventoryRouter);
 
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({ error: 'Route not found' });
-});
+// Serve static files from frontend build (in production)
+if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
+  const frontendBuild = join(__dirname, '../frontend/dist');
+  app.use(express.static(frontendBuild));
+  
+  // Serve React app for all non-API routes
+  app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api') && req.path !== '/health') {
+      res.sendFile(join(frontendBuild, 'index.html'));
+    } else {
+      res.status(404).json({ error: 'Route not found' });
+    }
+  });
+} else {
+  // 404 handler for API routes only in development
+  app.use((req, res) => {
+    if (req.path.startsWith('/api')) {
+      res.status(404).json({ error: 'Route not found' });
+    } else {
+      res.status(404).send('Route not found - Frontend should be running separately in development');
+    }
+  });
+}
 
 // Error handler
 app.use((err, req, res, next) => {
@@ -55,14 +75,11 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Only start server if not in serverless environment
-if (process.env.VERCEL !== '1') {
-  app.listen(PORT, () => {
-    console.log(`🚀 EMS Inventory API running on http://localhost:${PORT}`);
-    console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-  });
-}
+// Start server
+app.listen(PORT, () => {
+  console.log(`🚀 EMS Inventory API running on http://localhost:${PORT}`);
+  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+});
 
 // Export for Vercel
 export default app;
-

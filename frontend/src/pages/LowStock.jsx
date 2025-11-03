@@ -1,24 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { AlertTriangle, Package, TrendingDown } from 'lucide-react';
-import StockBadge from '../components/StockBadge';
-import { apiCall } from '../utils/api';
+import api from '../utils/api';
+import { AlertTriangle, Package, TrendingDown, PackageX } from 'lucide-react';
 
 const LowStock = () => {
-  const [lowStockSupplies, setLowStockSupplies] = useState([]);
+  const [supplies, setSupplies] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchLowStockSupplies();
-    // Refresh every 30 seconds
-    const interval = setInterval(fetchLowStockSupplies, 30000);
-    return () => clearInterval(interval);
   }, []);
 
   const fetchLowStockSupplies = async () => {
     try {
-      const response = await apiCall('/api/supplies/low');
-      const data = await response.json();
-      setLowStockSupplies(data);
+      const response = await api.get('/inventory/low-stock');
+      setSupplies(response.data);
     } catch (error) {
       console.error('Error fetching low stock supplies:', error);
     } finally {
@@ -26,255 +21,198 @@ const LowStock = () => {
     }
   };
 
-  const criticalSupplies = lowStockSupplies.filter(s => s.stock_status === 'low');
-  const warningSupplies = lowStockSupplies.filter(s => s.stock_status === 'medium');
+  const handleRestock = async (id, newQuantity) => {
+    try {
+      await api.put(`/inventory/supplies/${id}`, { current_quantity: newQuantity });
+      await fetchLowStockSupplies();
+    } catch (error) {
+      console.error('Error updating supply:', error);
+    }
+  };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
       </div>
     );
   }
 
+  const outOfStock = supplies.filter(s => s.stock_status === 'out_of_stock');
+  const lowStock = supplies.filter(s => s.stock_status === 'low');
+  const mediumStock = supplies.filter(s => s.stock_status === 'medium');
+
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900">Low Stock Alerts</h2>
-        <p className="text-gray-600 mt-1">Monitor supplies that need restocking</p>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between">
+      {/* Alert Banner */}
+      {outOfStock.length > 0 && (
+        <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-lg">
+          <div className="flex items-center">
+            <AlertTriangle className="h-6 w-6 text-red-600 mr-3" />
             <div>
-              <p className="text-sm font-medium text-gray-600 mb-1">Total Low Stock</p>
-              <p className="text-3xl font-bold text-gray-900">{lowStockSupplies.length}</p>
-            </div>
-            <div className="p-3 rounded-full bg-yellow-100 text-yellow-600">
-              <TrendingDown className="h-6 w-6" />
+              <h3 className="text-lg font-medium text-red-800">Critical Alert</h3>
+              <p className="text-red-700">{outOfStock.length} items are completely out of stock!</p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600 mb-1">Critical</p>
-              <p className="text-3xl font-bold text-red-600">{criticalSupplies.length}</p>
-              <p className="text-xs text-gray-500 mt-1">Immediate action required</p>
-            </div>
-            <div className="p-3 rounded-full bg-red-100 text-red-600">
-              <AlertTriangle className="h-6 w-6" />
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600 mb-1">Warning</p>
-              <p className="text-3xl font-bold text-yellow-600">{warningSupplies.length}</p>
-              <p className="text-xs text-gray-500 mt-1">Restock soon</p>
-            </div>
-            <div className="p-3 rounded-full bg-yellow-100 text-yellow-600">
-              <Package className="h-6 w-6" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {lowStockSupplies.length === 0 ? (
-        <div className="bg-white rounded-lg shadow p-12 text-center">
-          <Package className="h-16 w-16 text-green-500 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">All Good! 🎉</h3>
-          <p className="text-gray-600">All supplies are adequately stocked.</p>
-        </div>
-      ) : (
-        <>
-          {/* Critical Supplies */}
-          {criticalSupplies.length > 0 && (
-            <div className="bg-white rounded-lg shadow">
-              <div className="px-6 py-4 bg-red-50 border-b border-red-100">
-                <div className="flex items-center">
-                  <AlertTriangle className="h-5 w-5 text-red-600 mr-2" />
-                  <h3 className="text-lg font-semibold text-red-900">
-                    Critical - Immediate Restock Required ({criticalSupplies.length})
-                  </h3>
-                </div>
-              </div>
-              <div className="p-6">
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead>
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Supply Name
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Category
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Location
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Current Stock
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Min Threshold
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Stock Level
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {criticalSupplies.map((supply) => {
-                        const percentage = (supply.current_quantity / supply.min_threshold) * 100;
-                        return (
-                          <tr key={supply.id} className="hover:bg-gray-50">
-                            <td className="px-4 py-3">
-                              <div className="text-sm font-medium text-gray-900">{supply.name}</div>
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-600">
-                              {supply.category_name}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-600">
-                              {supply.location || 'N/A'}
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className="text-sm font-semibold text-red-600">
-                                {supply.current_quantity} {supply.unit}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-600">
-                              {supply.min_threshold} {supply.unit}
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="flex items-center space-x-2">
-                                <div className="flex-1 bg-gray-200 rounded-full h-2 max-w-xs">
-                                  <div
-                                    className="h-2 rounded-full bg-red-600"
-                                    style={{ width: `${Math.min(percentage, 100)}%` }}
-                                  ></div>
-                                </div>
-                                <span className="text-xs font-medium text-red-600">
-                                  {Math.round(percentage)}%
-                                </span>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Warning Supplies */}
-          {warningSupplies.length > 0 && (
-            <div className="bg-white rounded-lg shadow">
-              <div className="px-6 py-4 bg-yellow-50 border-b border-yellow-100">
-                <div className="flex items-center">
-                  <TrendingDown className="h-5 w-5 text-yellow-600 mr-2" />
-                  <h3 className="text-lg font-semibold text-yellow-900">
-                    Warning - Restock Soon ({warningSupplies.length})
-                  </h3>
-                </div>
-              </div>
-              <div className="p-6">
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead>
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Supply Name
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Category
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Location
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Current Stock
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Min Threshold
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Stock Level
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {warningSupplies.map((supply) => {
-                        const percentage = (supply.current_quantity / supply.min_threshold) * 100;
-                        return (
-                          <tr key={supply.id} className="hover:bg-gray-50">
-                            <td className="px-4 py-3">
-                              <div className="text-sm font-medium text-gray-900">{supply.name}</div>
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-600">
-                              {supply.category_name}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-600">
-                              {supply.location || 'N/A'}
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className="text-sm font-semibold text-yellow-600">
-                                {supply.current_quantity} {supply.unit}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-600">
-                              {supply.min_threshold} {supply.unit}
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="flex items-center space-x-2">
-                                <div className="flex-1 bg-gray-200 rounded-full h-2 max-w-xs">
-                                  <div
-                                    className="h-2 rounded-full bg-yellow-600"
-                                    style={{ width: `${Math.min(percentage, 100)}%` }}
-                                  ></div>
-                                </div>
-                                <span className="text-xs font-medium text-yellow-600">
-                                  {Math.round(percentage)}%
-                                </span>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
-        </>
       )}
 
-      {/* Action Reminder */}
-      {lowStockSupplies.length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <Package className="h-5 w-5 text-blue-600" />
-            </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-blue-900">Restocking Reminder</h3>
-              <p className="mt-1 text-sm text-blue-700">
-                Please place orders for low stock items to ensure continuous availability of medical supplies.
-                Contact your supplier or use your standard ordering process.
-              </p>
+      {/* Out of Stock Section */}
+      {outOfStock.length > 0 && (
+        <div className="bg-white rounded-lg shadow">
+          <div className="px-6 py-4 border-b bg-red-50">
+            <h2 className="text-lg font-semibold text-red-900 flex items-center">
+              <PackageX className="h-5 w-5 mr-2" />
+              Out of Stock ({outOfStock.length})
+            </h2>
+          </div>
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {outOfStock.map(supply => (
+                <StockCard key={supply.id} supply={supply} onRestock={handleRestock} />
+              ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Low Stock Section */}
+      {lowStock.length > 0 && (
+        <div className="bg-white rounded-lg shadow">
+          <div className="px-6 py-4 border-b bg-yellow-50">
+            <h2 className="text-lg font-semibold text-yellow-900 flex items-center">
+              <AlertTriangle className="h-5 w-5 mr-2" />
+              Low Stock ({lowStock.length})
+            </h2>
+          </div>
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {lowStock.map(supply => (
+                <StockCard key={supply.id} supply={supply} onRestock={handleRestock} />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Medium Stock Section */}
+      {mediumStock.length > 0 && (
+        <div className="bg-white rounded-lg shadow">
+          <div className="px-6 py-4 border-b bg-orange-50">
+            <h2 className="text-lg font-semibold text-orange-900 flex items-center">
+              <TrendingDown className="h-5 w-5 mr-2" />
+              Below Optimal ({mediumStock.length})
+            </h2>
+          </div>
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {mediumStock.map(supply => (
+                <StockCard key={supply.id} supply={supply} onRestock={handleRestock} />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {supplies.length === 0 && (
+        <div className="bg-white rounded-lg shadow p-12 text-center">
+          <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">All Stock Levels Good!</h3>
+          <p className="text-gray-600">No items are currently low on stock.</p>
         </div>
       )}
     </div>
   );
 };
 
-export default LowStock;
+const StockCard = ({ supply, onRestock }) => {
+  const [restocking, setRestocking] = useState(false);
+  const [newQuantity, setNewQuantity] = useState(supply.current_quantity);
 
+  const handleRestock = () => {
+    onRestock(supply.id, newQuantity);
+    setRestocking(false);
+  };
+
+  const getStatusColor = () => {
+    if (supply.stock_status === 'out_of_stock') return 'border-red-300 bg-red-50';
+    if (supply.stock_status === 'low') return 'border-yellow-300 bg-yellow-50';
+    return 'border-orange-300 bg-orange-50';
+  };
+
+  return (
+    <div className={`border rounded-lg p-4 ${getStatusColor()}`}>
+      <div className="flex justify-between items-start mb-3">
+        <h3 className="font-medium text-gray-900">{supply.name}</h3>
+        {supply.stock_status === 'out_of_stock' && (
+          <span className="px-2 py-1 text-xs font-bold bg-red-600 text-white rounded">OUT</span>
+        )}
+      </div>
+      
+      <div className="space-y-2 text-sm">
+        <div className="flex justify-between">
+          <span className="text-gray-600">Category:</span>
+          <span className="font-medium">{supply.category_name}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-gray-600">Current:</span>
+          <span className="font-medium">{supply.current_quantity} {supply.unit}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-gray-600">Minimum:</span>
+          <span className="font-medium">{supply.min_threshold} {supply.unit}</span>
+        </div>
+      </div>
+
+      {/* Stock Level Bar */}
+      <div className="mt-3">
+        <div className="w-full bg-gray-200 rounded-full h-2">
+          <div
+            className={`h-2 rounded-full ${
+              supply.stock_status === 'out_of_stock' ? 'bg-red-600' :
+              supply.stock_status === 'low' ? 'bg-yellow-600' : 'bg-orange-600'
+            }`}
+            style={{ width: `${Math.min(supply.stock_percentage || 0, 100)}%` }}
+          ></div>
+        </div>
+        <p className="text-xs text-gray-600 mt-1">{supply.stock_percentage}% of minimum</p>
+      </div>
+
+      {/* Restock Button/Form */}
+      {restocking ? (
+        <div className="mt-4 space-y-2">
+          <input
+            type="number"
+            value={newQuantity}
+            onChange={(e) => setNewQuantity(parseInt(e.target.value))}
+            className="w-full px-3 py-1 border rounded text-sm"
+            placeholder="New quantity"
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={handleRestock}
+              className="flex-1 px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
+            >
+              Save
+            </button>
+            <button
+              onClick={() => {setRestocking(false); setNewQuantity(supply.current_quantity);}}
+              className="flex-1 px-3 py-1 bg-gray-300 text-gray-700 rounded text-sm hover:bg-gray-400"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={() => setRestocking(true)}
+          className="w-full mt-4 px-3 py-1 bg-primary-600 text-white rounded text-sm hover:bg-primary-700"
+        >
+          Restock
+        </button>
+      )}
+    </div>
+  );
+};
+
+export default LowStock;
