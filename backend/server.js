@@ -44,24 +44,31 @@ app.get('/health', (req, res) => {
 
 // Serve static files from frontend build (in production)
 if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
+  // In Vercel, static files are served automatically, but we need to handle SPA routing
+  // Only serve index.html for non-API routes (let Vercel handle static assets)
+  app.get('*', (req, res, next) => {
+    // Skip API routes and health check
+    if (req.path.startsWith('/api') || req.path === '/health') {
+      return next();
+    }
+    
+    // For all other routes, serve index.html (SPA routing)
+    const frontendBuild = join(__dirname, '../frontend/dist');
+    res.sendFile(join(frontendBuild, 'index.html'), (err) => {
+      if (err) {
+        // If file doesn't exist, let Vercel handle it (static build might be elsewhere)
+        next();
+      }
+    });
+  });
+} else {
+  // Development: serve static files explicitly
   const frontendBuild = join(__dirname, '../frontend/dist');
   app.use(express.static(frontendBuild));
   
-  // Serve React app for all non-API routes
   app.get('*', (req, res) => {
     if (!req.path.startsWith('/api') && req.path !== '/health') {
       res.sendFile(join(frontendBuild, 'index.html'));
-    } else {
-      res.status(404).json({ error: 'Route not found' });
-    }
-  });
-} else {
-  // 404 handler for API routes only in development
-  app.use((req, res) => {
-    if (req.path.startsWith('/api')) {
-      res.status(404).json({ error: 'Route not found' });
-    } else {
-      res.status(404).send('Route not found - Frontend should be running separately in development');
     }
   });
 }

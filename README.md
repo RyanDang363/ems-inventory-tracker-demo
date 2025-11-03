@@ -77,10 +77,12 @@ frontend/
 ## API Overview
 
 **Public endpoints:**
+
 - `POST /api/auth/login` - Manager login
 - `POST /api/google-forms/submit` - Google Forms submission
 
 **Protected endpoints (require JWT):**
+
 - `GET /api/inventory/supplies` - List all supplies
 - `GET /api/inventory/dashboard` - Dashboard stats
 - `PUT /api/inventory/supplies/:id` - Update supply
@@ -103,6 +105,7 @@ For Vercel deployment, add these same variables in your project settings.
 ## Notes on Security
 
 This is a demo project, so I kept some things simple:
+
 - Passwords are stored in plaintext (would use bcrypt in production)
 - No rate limiting on public endpoints (would add this for production)
 - JWT tokens expire after 7 days
