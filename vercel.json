@@ -19,14 +19,6 @@
       "dest": "backend/server.js"
     },
     {
-      "src": "/assets/(.*)",
-      "dest": "/frontend/dist/assets/$1"
-    },
-    {
-      "src": "/(.*\\.(js|css|ico|svg|png|jpg|jpeg|gif|woff|woff2|ttf|eot))",
-      "dest": "/frontend/dist/$1"
-    },
-    {
       "src": "/(.*)",
       "dest": "backend/server.js"
     }

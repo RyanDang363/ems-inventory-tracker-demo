@@ -42,36 +42,26 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Serve static files from frontend build (in production)
-if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
-  // In Vercel, static files are served automatically, but we need to handle SPA routing
-  // Only serve index.html for non-API routes (let Vercel handle static assets)
-  app.get('*', (req, res, next) => {
-    // Skip API routes and health check
-    if (req.path.startsWith('/api') || req.path === '/health') {
-      return next();
-    }
-    
-    // For all other routes, serve index.html (SPA routing)
-    const frontendBuild = join(__dirname, '../frontend/dist');
-    res.sendFile(join(frontendBuild, 'index.html'), (err) => {
-      if (err) {
-        // If file doesn't exist, let Vercel handle it (static build might be elsewhere)
-        next();
-      }
-    });
-  });
-} else {
-  // Development: serve static files explicitly
-  const frontendBuild = join(__dirname, '../frontend/dist');
-  app.use(express.static(frontendBuild));
+// Serve static files from frontend build
+const frontendBuild = join(__dirname, '../frontend/dist');
+
+// Serve static assets (JS, CSS, images, etc.)
+app.use(express.static(frontendBuild));
+
+// Handle SPA routing - serve index.html for all non-API routes
+app.get('*', (req, res, next) => {
+  // Skip API routes and health check
+  if (req.path.startsWith('/api') || req.path === '/health') {
+    return next();
+  }
   
-  app.get('*', (req, res) => {
-    if (!req.path.startsWith('/api') && req.path !== '/health') {
-      res.sendFile(join(frontendBuild, 'index.html'));
+  // Serve index.html for all other routes (React Router will handle routing)
+  res.sendFile(join(frontendBuild, 'index.html'), (err) => {
+    if (err) {
+      res.status(404).send('Page not found');
     }
   });
-}
+});
 
 // Error handler
 app.use((err, req, res, next) => {
