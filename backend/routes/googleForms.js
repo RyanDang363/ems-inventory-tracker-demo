@@ -1,71 +1,101 @@
 import express from 'express';
-import db from '../database/db.js';
+import Supply from '../models/Supply.js';
+import Transaction from '../models/Transaction.js';
 
 const router = express.Router();
 
-// Google Forms endpoint - public (no auth required)
-router.post('/submit', (req, res) => {
+// Endpoint for Google Forms to submit supply usage
+router.post('/submit', async (req, res) => {
   try {
-    const { supply_name, quantity, employee_name, notes } = req.body;
+    const { supply_name, quantity, employee_name } = req.body;
 
-    // Validation
+    // Validate input
     if (!supply_name || !quantity || !employee_name) {
       return res.status(400).json({ 
-        error: 'Missing required fields: supply_name, quantity, employee_name' 
+        error: 'Missing required fields: supply_name, quantity, and employee_name are required' 
       });
     }
 
-    // Find supply by name
-    const supply = db.prepare('SELECT id, current_quantity, name FROM supplies WHERE name = ?').get(supply_name);
-    if (!supply) {
-      return res.status(404).json({ error: `Supply not found: ${supply_name}` });
+    const quantityNum = parseInt(quantity);
+    if (isNaN(quantityNum) || quantityNum <= 0) {
+      return res.status(400).json({ 
+        error: 'Quantity must be a positive number' 
+      });
     }
 
-    // Create transaction with negative quantity (items taken)
-    const quantity_change = -Math.abs(quantity);
+    // Find the supply (case-insensitive search)
+    // Escape special regex characters in the supply name (parentheses, etc.)
+    const escapedSupplyName = supply_name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const supply = await Supply.findOne({
+      name: { $regex: new RegExp(`^${escapedSupplyName}$`, 'i') }
+    }).populate('category_id', 'name');
 
-    const insertTransaction = db.prepare(`
-      INSERT INTO transactions (supply_id, quantity_change, reason, employee_name, notes)
-      VALUES (?, ?, ?, ?, ?)
-    `);
+    if (!supply) {
+      return res.status(404).json({ 
+        error: `Supply "${supply_name}" not found in inventory` 
+      });
+    }
 
-    const updateSupply = db.prepare(`
-      UPDATE supplies 
-      SET current_quantity = current_quantity + ?,
-          last_updated = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `);
+    // Check if there's enough quantity
+    if (supply.current_quantity < quantityNum) {
+      return res.status(400).json({ 
+        error: `Insufficient quantity. Only ${supply.current_quantity} ${supply.unit} available.`,
+        current_quantity: supply.current_quantity,
+        requested_quantity: quantityNum
+      });
+    }
 
-    const transaction = db.transaction(() => {
-      const txResult = insertTransaction.run(
-        supply.id, 
-        quantity_change, 
-        'Item taken via form', 
-        employee_name, 
-        notes || null
-      );
-      updateSupply.run(quantity_change, supply.id);
-      return txResult;
+    // Update the supply quantity
+    const oldQuantity = supply.current_quantity;
+    const newQuantity = oldQuantity - quantityNum;
+    
+    supply.current_quantity = newQuantity;
+    supply.last_updated = new Date();
+    await supply.save();
+
+    // Record the transaction
+    await Transaction.create({
+      supply_id: supply._id,
+      quantity_change: -quantityNum,
+      type: 'use',
+      employee_name: employee_name
     });
 
-    const result = transaction();
+    // Check if item is now low stock
+    const isLowStock = newQuantity <= supply.min_threshold;
+    const stockStatus = newQuantity === 0 ? 'out_of_stock' : 
+                       newQuantity <= supply.min_threshold ? 'low' : 'good';
 
-    // Get the updated supply info
-    const updatedSupply = db.prepare('SELECT current_quantity FROM supplies WHERE id = ?').get(supply.id);
-
-    res.status(201).json({
+    res.json({
       success: true,
-      message: `Successfully recorded: ${Math.abs(quantity_change)} ${supply.name} taken by ${employee_name}`,
-      transaction_id: result.lastInsertRowid,
-      supply_name: supply.name,
-      previous_quantity: supply.current_quantity,
-      new_quantity: updatedSupply.current_quantity
+      message: `Successfully recorded: ${quantityNum} ${supply.unit} of ${supply.name} used by ${employee_name}`,
+      supply: {
+        name: supply.name,
+        category: supply.category_id?.name || 'Unknown',
+        previous_quantity: oldQuantity,
+        new_quantity: newQuantity,
+        unit: supply.unit,
+        stock_status: stockStatus,
+        is_low_stock: isLowStock
+      }
     });
+
   } catch (error) {
-    console.error('Error submitting transaction:', error);
-    res.status(500).json({ error: 'Failed to submit transaction' });
+    console.error('Error processing Google Forms submission:', error);
+    res.status(500).json({ 
+      error: 'Failed to process supply usage',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
-export default router;
+// Test endpoint to verify Google Forms integration
+router.get('/test', (req, res) => {
+  res.json({
+    status: 'ok',
+    message: 'Google Forms endpoint is working',
+    timestamp: new Date().toISOString()
+  });
+});
 
+export default router;
