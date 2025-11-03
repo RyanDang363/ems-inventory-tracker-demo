@@ -2,174 +2,161 @@
 
 A modern inventory management system for Emergency Medical Services (EMS) teams to track medical supplies, monitor stock levels, and integrate with Google Forms for easy supply usage reporting.
 
+[![Live Demo](https://img.shields.io/badge/demo-live-green)](https://emsinventorytracker.vercel.app)
+
 ## Features
 
-- **Real-time Dashboard** - Overview of inventory status, low stock alerts, and recent activity
-- **Inventory Management** - Full CRUD operations for managing medical supplies
-- **Low Stock Alerts** - Visual alerts for supplies running low or out of stock
-- **Transaction History** - Complete audit trail of all inventory changes
-- **Google Forms Integration** - Allow EMTs to report supply usage via Google Forms
-- **Category Organization** - Supplies organized by medical categories
-- **Responsive Design** - Works on desktop, tablet, and mobile devices
+- **Dashboard** - Real-time overview of inventory status and low stock alerts
+- **Inventory Management** - Track and manage medical supplies with full CRUD operations
+- **Low Stock Monitoring** - Automatic alerts for supplies running low
+- **Transaction History** - Complete audit trail of inventory changes
+- **Manager Authentication** - Secure login system with JWT tokens
+- **Google Forms Integration** - Allow field staff to report supply usage via forms
+- **Responsive Design** - Works on desktop, tablet, and mobile
 
 ## Tech Stack
 
-- **Frontend**: React 18, TailwindCSS, Recharts, Lucide Icons
-- **Backend**: Node.js, Express, SQLite
-- **Deployment**: Vercel-ready configuration
+**Frontend**
+- React 18 with React Router
+- TailwindCSS for styling
+- Recharts for data visualization
+- Axios for API calls
+
+**Backend**
+- Node.js with Express
+- MongoDB Atlas (cloud database)
+- Mongoose ODM
+- JWT authentication
+
+**Deployment**
+- Vercel (frontend + backend combined)
+- MongoDB Atlas (database)
 
 ## Quick Start
 
 ### Prerequisites
 
-- Node.js 18+ installed
-- npm or yarn package manager
+- Node.js 18+
+- MongoDB Atlas account (or local MongoDB)
 
 ### Installation
 
-1. Clone the repository:
-
+1. **Clone the repository**
 ```bash
-git clone <your-repo-url>
-cd ems_inventory_tracker
+git clone https://github.com/RyanDang363/ems-inventory-tracker-demo.git
+cd ems-inventory-tracker-demo
 ```
 
-2. Install backend dependencies:
+2. **Set up environment variables**
 
-```bash
-cd backend
-npm install
-```
-
-3. Initialize the database:
-
-```bash
-npm run init-db
-```
-
-4. Start the backend server:
-
-```bash
-npm start
-```
-
-5. In a new terminal, install frontend dependencies:
-
-```bash
-cd frontend
-npm install
-```
-
-6. Start the frontend development server:
-
-```bash
-npm run dev
-```
-
-7. Open your browser and navigate to `http://localhost:5173`
-
-## API Endpoints
-
-### Inventory Management
-
-- `GET /api/inventory/supplies` - Get all supplies
-- `GET /api/inventory/low-stock` - Get low stock items
-- `GET /api/inventory/dashboard` - Get dashboard statistics
-- `GET /api/inventory/categories` - Get all categories
-- `POST /api/inventory/supplies` - Add new supply
-- `PUT /api/inventory/supplies/:id` - Update supply
-- `DELETE /api/inventory/supplies/:id` - Delete supply
-- `GET /api/inventory/transactions` - Get transaction history
-
-### Google Forms Integration
-
-- `POST /api/google-forms/submit` - Submit supply usage from Google Forms
-- `GET /api/google-forms/test` - Test endpoint connectivity
-
-## Google Forms Integration
-
-To integrate with Google Forms:
-
-1. Create a Google Form with fields:
-
-   - Employee Name (Short answer, required)
-   - Supply Item (Dropdown, required)
-   - Quantity (Number, required)
-
-2. Add Google Apps Script to the form:
-
-   - Go to Form Settings → Script Editor
-   - Copy the script from `google-forms-script.js`
-   - Update the `API_ENDPOINT` to your deployed backend URL
-   - Set up a trigger for "On form submit"
-
-3. Test the integration by submitting a form
-
-## Deployment
-
-### Backend (Vercel)
-
-1. Install Vercel CLI:
-
-```bash
-npm i -g vercel
-```
-
-2. Deploy backend:
-
-```bash
-cd backend
-vercel
-```
-
-3. Set environment variables in Vercel dashboard
-
-### Frontend (Vercel)
-
-1. Build the frontend:
-
-```bash
-cd frontend
-npm run build
-```
-
-2. Deploy to Vercel:
-
-```bash
-vercel --prod
-```
-
-3. Update the API URL in your frontend code to point to your deployed backend
-
-## Database Schema
-
-- **categories** - Medical supply categories
-- **supplies** - Individual supply items with stock levels
-- **transactions** - History of all inventory changes
-
-## Environment Variables
-
-Create a `.env` file in the backend directory:
-
+Create `backend/.env`:
 ```env
-PORT=3000
+MONGODB_URI=your_mongodb_connection_string
+JWT_SECRET=your_jwt_secret_key
 NODE_ENV=development
 ```
 
-For production, set these in your hosting platform's environment variables.
+3. **Install dependencies and seed database**
+```bash
+# Backend
+cd backend
+npm install
+npm run seed
 
-## Contributing
+# Frontend
+cd ../frontend
+npm install
+```
 
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Open a Pull Request
+4. **Run locally**
+```bash
+# Terminal 1 - Backend (from backend/)
+npm start
+
+# Terminal 2 - Frontend (from frontend/)
+npm run dev
+```
+
+5. **Access the app**
+- Frontend: `http://localhost:5173`
+- Backend API: `http://localhost:3000`
+
+### Default Login Credentials
+
+- **Username:** `manager1` | **Password:** `password123`
+- **Username:** `manager2` | **Password:** `password123`
+
+## Google Forms Integration
+
+1. Create a Google Form with these fields:
+   - **Employee Name** (Short answer, required)
+   - **Supply Item** (Dropdown, required) - populate with supply names from your inventory
+   - **Quantity** (Number, required)
+
+2. Add the Google Apps Script:
+   - Open your form → Click the 3 dots menu → Script editor
+   - Copy the code from `google-forms-script.js`
+   - Update `API_ENDPOINT` to your deployed URL
+   - Save and authorize the script
+
+3. Set up form trigger:
+   - In Apps Script editor → Triggers (clock icon)
+   - Add trigger: `onFormSubmit` → Head → From form → On form submit
+
+## Deployment
+
+The app is configured for single Vercel deployment (frontend + backend combined).
+
+1. **Push to GitHub** (already connected)
+```bash
+git push
+```
+
+2. **Environment Variables on Vercel**
+
+Set these in your Vercel project settings:
+- `MONGODB_URI` - Your MongoDB Atlas connection string
+- `JWT_SECRET` - Secret key for JWT tokens
+- `NODE_ENV` - Set to `production`
+
+3. **Deploy**
+
+Vercel will automatically deploy on every push to main branch.
+
+## API Endpoints
+
+### Authentication
+- `POST /api/auth/login` - Manager login
+- `GET /api/auth/verify` - Verify JWT token
+
+### Inventory (Protected)
+- `GET /api/inventory/supplies` - Get all supplies
+- `GET /api/inventory/low-stock` - Get low stock items  
+- `GET /api/inventory/dashboard` - Get dashboard stats
+- `PUT /api/inventory/supplies/:id` - Update supply
+- `DELETE /api/inventory/supplies/:id` - Delete supply
+
+### Google Forms (Public)
+- `POST /api/google-forms/submit` - Submit supply usage
+
+## Database Schema
+
+**Users**
+- username, password, fullName
+
+**Categories**
+- name (Airway Management, Medications, etc.)
+
+**Supplies**
+- name, category_id, current_quantity, min_threshold, unit, description
+
+**Transactions**
+- supply_id, quantity_change, type, employee_name, timestamp
 
 ## License
 
-MIT License
+MIT
 
-## Support
+## Author
 
-For issues or questions, please open an issue on GitHub.
+Ryan Dang
