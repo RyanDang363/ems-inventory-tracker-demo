@@ -24,10 +24,8 @@ const connectDB = async () => {
     console.log('✅ Connected to MongoDB Atlas');
   } catch (error) {
     console.error('❌ MongoDB connection error:', error);
-    // Don't exit in production, let Vercel handle retries
-    if (process.env.NODE_ENV !== 'production') {
-      process.exit(1);
-    }
+    // In production, don't crash - allow server to start and handle errors gracefully
+    // Vercel will retry connections automatically
   }
 };
 
