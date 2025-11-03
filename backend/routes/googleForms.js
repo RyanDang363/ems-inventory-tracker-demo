@@ -36,18 +36,14 @@ router.post('/submit', async (req, res) => {
       });
     }
 
-    // Check if there's enough quantity
-    if (supply.current_quantity < quantityNum) {
-      return res.status(400).json({ 
-        error: `Insufficient quantity. Only ${supply.current_quantity} ${supply.unit} available.`,
-        current_quantity: supply.current_quantity,
-        requested_quantity: quantityNum
-      });
-    }
-
     // Update the supply quantity
     const oldQuantity = supply.current_quantity;
-    const newQuantity = oldQuantity - quantityNum;
+    let newQuantity = oldQuantity - quantityNum;
+    
+    // If requested quantity exceeds available, set to 0 instead of going negative
+    if (newQuantity < 0) {
+      newQuantity = 0;
+    }
     
     supply.current_quantity = newQuantity;
     supply.last_updated = new Date();

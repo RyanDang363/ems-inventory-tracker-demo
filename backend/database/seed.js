@@ -1,11 +1,17 @@
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import User from '../models/User.js';
 import Category from '../models/Category.js';
 import Supply from '../models/Supply.js';
 import Transaction from '../models/Transaction.js';
 
-dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Load .env from backend directory (parent of database/)
+dotenv.config({ path: join(__dirname, '..', '.env') });
 
 const MONGODB_URI = process.env.MONGODB_URI;
 
