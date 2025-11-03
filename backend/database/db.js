@@ -3,8 +3,11 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// MongoDB connection string - update <db_password> with actual password
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://ryandang999_db_user:<db_password>@cluster0.izsxepp.mongodb.net/ems_inventory?retryWrites=true&w=majority&appName=Cluster0';
+const MONGODB_URI = process.env.MONGODB_URI;
+
+if (!MONGODB_URI) {
+  throw new Error('MONGODB_URI environment variable is required');
+}
 
 // Connection options
 const options = {

@@ -11,6 +11,8 @@ const Inventory = () => {
   const [editingId, setEditingId] = useState(null);
   const [editData, setEditData] = useState({});
   const [showAddModal, setShowAddModal] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+  const [error, setError] = useState(null);
   const [newSupply, setNewSupply] = useState({
     name: '',
     category_id: '',
@@ -26,10 +28,11 @@ const Inventory = () => {
 
   const fetchSupplies = async () => {
     try {
+      setError(null);
       const response = await api.get('/inventory/supplies');
       setSupplies(response.data);
     } catch (error) {
-      console.error('Error fetching supplies:', error);
+      setError('Failed to load supplies. Please refresh the page.');
     } finally {
       setLoading(false);
     }
@@ -54,28 +57,31 @@ const Inventory = () => {
 
   const handleSave = async (id) => {
     try {
+      setError(null);
       await api.put(`/inventory/supplies/${id}`, editData);
       await fetchSupplies();
       setEditingId(null);
       setEditData({});
     } catch (error) {
-      console.error('Error updating supply:', error);
+      setError('Failed to update supply. Please try again.');
     }
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this supply?')) {
-      try {
-        await api.delete(`/inventory/supplies/${id}`);
-        await fetchSupplies();
-      } catch (error) {
-        console.error('Error deleting supply:', error);
-      }
+    try {
+      setError(null);
+      await api.delete(`/inventory/supplies/${id}`);
+      await fetchSupplies();
+      setDeleteConfirmId(null);
+    } catch (error) {
+      setError('Failed to delete supply. Please try again.');
+      setDeleteConfirmId(null);
     }
   };
 
   const handleAddSupply = async () => {
     try {
+      setError(null);
       await api.post('/inventory/supplies', newSupply);
       await fetchSupplies();
       setShowAddModal(false);
@@ -87,7 +93,7 @@ const Inventory = () => {
         unit: 'units'
       });
     } catch (error) {
-      console.error('Error adding supply:', error);
+      setError('Failed to add supply. Please check all fields and try again.');
     }
   };
 
@@ -107,6 +113,16 @@ const Inventory = () => {
 
   return (
     <div className="space-y-6">
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center justify-between">
+          <span>{error}</span>
+          <button onClick={() => setError(null)} className="text-red-700 hover:text-red-900">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex-1 w-full sm:max-w-md">
@@ -236,12 +252,32 @@ const Inventory = () => {
                           >
                             <Edit2 className="h-4 w-4" />
                           </button>
-                          <button
-                            onClick={() => handleDelete(supply.id)}
-                            className="p-1 text-red-600 hover:bg-red-100 rounded"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                          {deleteConfirmId === supply.id ? (
+                            <>
+                              <button
+                                onClick={() => handleDelete(supply.id)}
+                                className="p-1 text-red-600 hover:bg-red-100 rounded font-medium text-xs"
+                                title="Confirm delete"
+                              >
+                                Confirm
+                              </button>
+                              <button
+                                onClick={() => setDeleteConfirmId(null)}
+                                className="p-1 text-gray-600 hover:bg-gray-100 rounded font-medium text-xs"
+                                title="Cancel"
+                              >
+                                Cancel
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => setDeleteConfirmId(supply.id)}
+                              className="p-1 text-red-600 hover:bg-red-100 rounded"
+                              title="Delete supply"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
                         </>
                       )}
                     </div>

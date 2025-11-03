@@ -3,7 +3,11 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required');
+}
 
 // Login endpoint
 router.post('/login', async (req, res) => {
@@ -14,7 +18,8 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Username and password are required' });
     }
 
-    // Find user (in production, use proper password hashing)
+    // Note: This demo uses plaintext passwords for simplicity.
+    // In production, use bcrypt or similar for password hashing.
     const user = await User.findOne({ username, password });
 
     if (!user) {

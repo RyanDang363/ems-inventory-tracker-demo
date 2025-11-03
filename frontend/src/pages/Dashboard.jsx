@@ -24,7 +24,7 @@ const Dashboard = () => {
       const response = await api.get('/inventory/dashboard');
       setData(response.data);
     } catch (error) {
-      console.error('Error fetching dashboard data:', error);
+      // Silently handle error - will show empty state
     } finally {
       setLoading(false);
     }

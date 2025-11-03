@@ -26,7 +26,7 @@ const LowStock = () => {
       await api.put(`/inventory/supplies/${id}`, { current_quantity: newQuantity });
       await fetchLowStockSupplies();
     } catch (error) {
-      console.error('Error updating supply:', error);
+      // Error handling - could add toast notification here
     }
   };
 
